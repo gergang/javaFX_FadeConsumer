@@ -16,7 +16,7 @@ public class IFS_Test {
 		
 		try {
 			AS400 system = new AS400("sys_1");
-			IFSFile file = new IFSFile(system, "/home/TEST_SYS_3");
+			IFSFile file = new IFSFile(system, "/home/TEST_SYS_2");
 			BufferedReader reader;
 			reader = new BufferedReader(new IFSFileReader(file));
 			// Read the first line of the file, converting characters.
