@@ -56,11 +56,11 @@ public class PreviewExample extends Application  {
 				HBox.setMargin(b[i], ins);
 			}
 			
-			fc.setSelected(b[0], l[0]);
+			//fc.setSelected(b[0], l[0]);
 			fc.setDuration(200);
 			HBox.setMargin(b[0], new Insets(0,10,0,5));
 			HBox.setMargin(b[num-1], new Insets(0,5,0,0));
-			fc.changePreview(b[3], false);
+			fc.allowPreview(b[3], false);
 
 			
 			//HBox with buttons
