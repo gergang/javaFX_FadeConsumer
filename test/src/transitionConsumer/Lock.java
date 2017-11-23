@@ -6,7 +6,7 @@ package transitionConsumer;
  * No multi threading, just one lock.<br><br>
  * Methods:<br>
  * hold(), hold(millis), release()
- * @author gergang
+ * @author ge
  */
 public class Lock {
 

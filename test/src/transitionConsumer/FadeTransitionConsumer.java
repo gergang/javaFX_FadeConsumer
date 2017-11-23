@@ -13,20 +13,25 @@ import javafx.util.Duration;
 
 
 /**
- * A FadeTransition-Consumer for Node preview.  <br>
- * Delay before starting a FadeTransition defaults to 250 milliseconds. <br>
- * Add ToggleButtons & Nodes and choose witch node to show initially by calling setVisible(...) at start.  <br> <br>
- *
+ * 
+ * A FadeTransition-Producer/Consumer example for Node preview.  <br>
+ * 
+ * This will play fade transitions at mouse over & mouse exited in the right order and discard repeated (double) transitions 
+ * 
+ * The delay before starting a FadeTransition defaults to 250 milliseconds. <br>
+ * Add() ToggleButtons & Nodes ;<br>
+ * setSelected() to choose initially selected toggle <br> <br>
+ * Preview can be switched on and off with allowPreview()
  * Methods:  <br>
- * setDelay(), setDuration(), setPreviewOpacity(),  add(), changePreview(), setSelected() <br>
+ * setDelay(), setDuration(), setPreviewOpacity(),  add(), allowPreview(), setSelected() <br>
  * @author ge
  *  
  */
 public class FadeTransitionConsumer {
 	private ConcurrentLinkedQueue  <ExtendedFadeTransition> q = new ConcurrentLinkedQueue <ExtendedFadeTransition>();
-	private HashMap<Node, ExtendedFadeTransition> hm = new HashMap<Node, ExtendedFadeTransition>();
-	private HashMap<ToggleButton, Boolean> hmAllowPreview = new HashMap<ToggleButton, Boolean>();
-	private Object lock = new Object();
+	private HashMap<Node, ExtendedFadeTransition> hmFT = new HashMap<Node, ExtendedFadeTransition>();
+	private HashMap<ToggleButton, Boolean> hmAlwPreview = new HashMap<ToggleButton, Boolean>();
+	private Object lockObject = new Object();
 	private Lock innerLock = new Lock();
 	private Lock outerLock = new Lock();
 	private Lock delayLock = new Lock();
@@ -34,14 +39,14 @@ public class FadeTransitionConsumer {
 	private long delayMs=300; //milliseconds before a transition will play
 	private Duration duration=new Duration(150); //transition duration
 	private ToggleGroup tg = new ToggleGroup();
-	private Node currentNode=null;
+	private Node currentNode=new Label(); //prevent a null pointer exception if setSelected() is skipped an startup
 	private double previewOpacity=0.7;
 
 	public FadeTransitionConsumer (){
 		Runnable task = () -> {
 			while (!stop){
 				while(!q.isEmpty() && q.size()>1){
-					synchronized (lock){ //make sure not to remove an element while adding one
+					synchronized (lockObject){ //make sure not to remove an element while adding one
 						play(q.remove());
 						play(q.remove());
 					}
@@ -59,7 +64,7 @@ public class FadeTransitionConsumer {
 	private void play(ExtendedFadeTransition eft){
 		FadeTransition ft = eft.transition;
 		Node node = ft.getNode();
-		hm.remove(node);
+		hmFT.remove(node);
 		if(eft.fadeIn){
 			setVisible(node, true);
 			ft.setOnFinished(e-> innerLock.release());
@@ -87,13 +92,13 @@ public class FadeTransitionConsumer {
 
 	private void show(final Node node){
 		if(node == currentNode) return;
-		synchronized (lock){
+		synchronized (lockObject){
 			if(!isWaitingOnQueue(currentNode))	addTransitionDelayed(duration, currentNode, false, currentNode.getOpacity(), 0);
 			if(!isWaitingOnQueue(node))			addTransitionDelayed(duration, node, true, 0, previewOpacity);
 		}
 	}
 	private synchronized void unShow(final Node node){
-		synchronized (lock){
+		synchronized (lockObject){
 			if(!isWaitingOnQueue(node))			addTransitionDelayed(duration, node,  false,previewOpacity, 0);
 			if(!isWaitingOnQueue(currentNode))	addTransitionDelayed(duration, currentNode,  true, 0, 1);
 		}
@@ -118,7 +123,7 @@ public class FadeTransitionConsumer {
 	
 	
 	private void select(Node node){
-		synchronized (lock){
+		synchronized (lockObject){
 			q.add(new ExtendedFadeTransition(new Duration(50), currentNode, true, currentNode.getOpacity(), 0));
 			currentNode=node;
 			q.add(new ExtendedFadeTransition(new Duration(50), currentNode, true, previewOpacity, 1.0)); //twice because need to 
@@ -129,10 +134,10 @@ public class FadeTransitionConsumer {
 	
 	/** cancel out a node if its counterpart is still on the queue */
 	private boolean isWaitingOnQueue(Node node){
-		if(hm.containsKey(node)){
+		if(hmFT.containsKey(node)){
 			//prt("rmv:" + ((Label)node).getText() + " = true");
-			q.remove(hm.get(node));
-			hm.remove(node);
+			q.remove(hmFT.get(node));
+			hmFT.remove(node);
 			return true;
 		}
 		return false;
@@ -189,18 +194,24 @@ public class FadeTransitionConsumer {
 		nodeToShowOrSelect.setOpacity(0);
 		nodeToShowOrSelect.setVisible(false);
 		tg.getToggles().add(toggleButton);
-		toggleButton.setOnMouseEntered(e-> 	{if(hmAllowPreview.get(toggleButton)) show(nodeToShowOrSelect);}) ;
-		toggleButton.setOnMouseExited(e->		{if(hmAllowPreview.get(toggleButton)) unShow(nodeToShowOrSelect);}) ;
+		toggleButton.setOnMouseEntered(e-> 	{if(hmAlwPreview.get(toggleButton)) show(nodeToShowOrSelect);}) ;
+		toggleButton.setOnMouseExited(e->		{if(hmAlwPreview.get(toggleButton)) unShow(nodeToShowOrSelect);}) ;
 		toggleButton.setOnMouseClicked(e-> 	{
 			if(!toggleButton.isSelected()) toggleButton.setSelected(true);
 			else select(nodeToShowOrSelect);
 		}) ;
-		hmAllowPreview.put(toggleButton, new Boolean(allowPreview));
+		hmAlwPreview.put(toggleButton, new Boolean(allowPreview));
 	}
 
-	public void changePreview(ToggleButton tb, boolean allowPreview){
-		hmAllowPreview.put(tb, new Boolean(allowPreview));
+	public void allowPreview(ToggleButton tb, boolean allowPreview){
+		hmAlwPreview.put(tb, new Boolean(allowPreview));
 	}
+	
+	/**
+	 * optional; initially all nodes are invisible & not selected
+	 * @param tb
+	 * @param node
+	 */
 	public void setSelected(ToggleButton tb, final Node node){
 		tb.setSelected(true);
 		Platform.runLater( () ->node.toFront() );
@@ -221,7 +232,7 @@ public class FadeTransitionConsumer {
 			transition.setToValue(toValue);
 			transition.setCycleCount(1);
 			this.fadeIn=prepareFadeIn;
-			hm.put(node, this);
+			hmFT.put(node, this);
 		}
 	}
 	
