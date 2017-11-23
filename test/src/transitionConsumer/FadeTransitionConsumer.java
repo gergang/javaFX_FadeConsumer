@@ -19,7 +19,7 @@ import javafx.util.Duration;
  *
  * Methods:  <br>
  * setDelay(), setDuration(), setPreviewOpacity(),  add(), changePreview(), setSelected() <br>
- * @author gergang
+ * @author ge
  *  
  */
 public class FadeTransitionConsumer {
@@ -36,7 +36,6 @@ public class FadeTransitionConsumer {
 	private ToggleGroup tg = new ToggleGroup();
 	private Node currentNode=null;
 	private double previewOpacity=0.7;
-	private Label dummyNode=new Label();
 
 	public FadeTransitionConsumer (){
 		Runnable task = () -> {
@@ -80,17 +79,7 @@ public class FadeTransitionConsumer {
 		});
 	}
 	
-	/**
-	 * Ensure that an unintentional mouse-entered or -exited event will be canceled before it plays.<br>
-	 * This needs to run in a thread outside the synchronized(lock) method obviously
-	 */
-	private void delay(){ 
-		Runnable task = () -> {
-			delayLock.hold(delayMs);
-			outerLock.release();
-		};	
-		new Thread(task).start();
-	}
+	
 
 
 
@@ -114,6 +103,20 @@ public class FadeTransitionConsumer {
 		if(delayMs>0) delay(); else outerLock.release();
 	}
 
+	/**
+	 * Ensure that an unintentional mouse-entered or -exited event waits 300 ms so to have a chance<br>
+	 *  of beeing canceled before it plays.<br>
+	 * This needs to run in a thread outside the synchronized(lock) method, obviously<br>
+	 */
+	private void delay(){ 
+		Runnable task = () -> {
+			delayLock.hold(delayMs);
+			outerLock.release();
+		};	
+		new Thread(task).start();
+	}
+	
+	
 	private void select(Node node){
 		synchronized (lock){
 			q.add(new ExtendedFadeTransition(new Duration(50), currentNode, true, currentNode.getOpacity(), 0));
