@@ -65,7 +65,7 @@ public class FadeTransitionConsumer {
 		FadeTransition ft = eft.transition;
 		Node node = ft.getNode();
 		hmFT.remove(node);
-		if(eft.fadeIn){
+		if(eft.direction == FadeDirection.IN){
 			setVisible(node, true);
 			ft.setOnFinished(e-> innerLock.release());
 		} else{
@@ -93,18 +93,18 @@ public class FadeTransitionConsumer {
 	private void show(final Node node){
 		if(node == currentNode) return;
 		synchronized (lockObject){
-			if(!isWaitingOnQueue(currentNode))	addTransitionDelayed(duration, currentNode, false, currentNode.getOpacity(), 0);
-			if(!isWaitingOnQueue(node))			addTransitionDelayed(duration, node, true, 0, previewOpacity);
+			if(!isWaitingOnQueue(currentNode))	addTransitionDelayed(duration, currentNode, FadeDirection.OUT, currentNode.getOpacity(), 0);
+			if(!isWaitingOnQueue(node))			addTransitionDelayed(duration, node, FadeDirection.IN, 0, previewOpacity);
 		}
 	}
 	private synchronized void unShow(final Node node){
 		synchronized (lockObject){
-			if(!isWaitingOnQueue(node))			addTransitionDelayed(duration, node,  false,previewOpacity, 0);
-			if(!isWaitingOnQueue(currentNode))	addTransitionDelayed(duration, currentNode,  true, 0, 1);
+			if(!isWaitingOnQueue(node))			addTransitionDelayed(duration, node,  FadeDirection.OUT,previewOpacity, 0);
+			if(!isWaitingOnQueue(currentNode))	addTransitionDelayed(duration, currentNode,  FadeDirection.IN, 0, 1);
 		}
 	}
-	private void addTransitionDelayed (Duration duration, Node node,  boolean in, double fromValue ,double toValue){
-		q.add(new ExtendedFadeTransition(duration, node, in, fromValue, toValue));
+	private void addTransitionDelayed (Duration duration, Node node,  FadeDirection direction, double fromValue ,double toValue){
+		q.add(new ExtendedFadeTransition(duration, node, direction, fromValue, toValue));
 		if(delayMs>0) delay(); else outerLock.release();
 	}
 
@@ -124,9 +124,9 @@ public class FadeTransitionConsumer {
 	
 	private void select(Node node){
 		synchronized (lockObject){
-			q.add(new ExtendedFadeTransition(new Duration(50), currentNode, true, currentNode.getOpacity(), 0));
+			q.add(new ExtendedFadeTransition(new Duration(50), currentNode, FadeDirection.IN , currentNode.getOpacity(), 0));
 			currentNode=node;
-			q.add(new ExtendedFadeTransition(new Duration(50), currentNode, true, previewOpacity, 1.0)); //twice because need to 
+			q.add(new ExtendedFadeTransition(new Duration(50), currentNode, FadeDirection.IN, previewOpacity, 1.0)); //twice because need to 
 			Platform.runLater( () ->node.toFront() );
 			outerLock.release();
 		}
@@ -221,20 +221,24 @@ public class FadeTransitionConsumer {
 	}
 
 	
-/************************** INTERNAL CLASSES  *******************************/
+/************************** INNER CLASSES  *******************************/
 
 	class ExtendedFadeTransition{
 		FadeTransition transition;
-		boolean fadeIn;
-		public ExtendedFadeTransition(Duration duration, final Node node, boolean prepareFadeIn, double fromValue , double toValue){
+		FadeDirection direction;
+		
+		public ExtendedFadeTransition(Duration duration, final Node node, FadeDirection direction, double fromValue , double toValue){
 			this.transition=new FadeTransition(duration, node);
 			transition.setFromValue(fromValue);
 			transition.setToValue(toValue);
 			transition.setCycleCount(1);
-			this.fadeIn=prepareFadeIn;
+			this.direction=direction;
 			hmFT.put(node, this);
 		}
 	}
 	
+	private enum FadeDirection{
+		IN, OUT
+	}
 
 }
